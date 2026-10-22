@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trening Eljon - Progresja i Waga</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color-1: #1e3a8a; /* Ciemny niebieski */
+            --bg-color-2: #059669; /* Szmaragdowy */
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-color-1), var(--bg-color-2));
+            background-attachment: fixed;
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            transition: background 0.5s ease;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.5); }
+
+        /* Niezawodne style CSS dla zaznaczonych fiszek */
+        .card-checkbox:checked + div {
+            background-color: #d1fae5 !important;
+            border-color: #10b981 !important;
+            transform: scale(0.99);
+        }
+        .card-checkbox:checked + div .ex-title {
+            color: #065f46 !important;
+            text-decoration: line-through !important;
+        }
+        .card-checkbox:checked + div .check-circle {
+            background-color: #10b981 !important;
+            border-color: #10b981 !important;
+        }
+        .card-checkbox:checked + div .check-circle i {
+            opacity: 1 !important;
+        }
+        
+        .smart-text { transition: color 0.3s ease; }
+    </style>
+</head>
+<body class="py-6 px-4">
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Modal potwierdzenia -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden bg-black/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-2xl text-center">
+            <h3 class="text-xl font-bold text-gray-800 mb-4" id="confirm-title">Czy na pewno?</h3>
+            <p class="text-gray-600 mb-6" id="confirm-message">Czy chcesz wyzerować wszystkie dzisiejsze ćwiczenia?</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-btn-cancel" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold transition">Anuluj</button>
+                <button id="confirm-btn-ok" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition">Tak, resetuj</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal motywacyjny -->
+    <div id="motivation-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden bg-black/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-8 max-w-md mx-4 shadow-2xl text-center transform scale-95 transition-transform duration-300" id="motivation-modal-content">
+            <i class="fa-solid fa-trophy text-6xl text-yellow-500 mb-4 drop-shadow-lg"></i>
+            <h2 class="text-3xl font-black text-gray-800 mb-2">Gratulacje!</h2>
+            <p class="text-lg text-gray-600 mb-6 font-medium">Ukończyłeś wszystkie ćwiczenia zaplanowane na dzisiaj.</p>
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-6 text-left shadow-inner">
+                <i class="fa-solid fa-quote-left text-blue-300 mb-2 text-xl"></i>
+                <p id="motivational-quote-text" class="text-blue-900 font-bold italic text-lg leading-relaxed"></p>
+            </div>
+            <button onclick="closeModal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors">
+                Zakończ trening
+            </button>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Porada dietetyczna (Codzienna) -->
+        <div id="diet-tip-container" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded shadow-md flex items-center gap-3">
+            <i class="fa-solid fa-lightbulb text-xl"></i>
+            <div>
+                <p class="font-bold text-sm uppercase tracking-wider mb-1">Porada na dziś</p>
+                <p id="diet-tip-text" class="font-medium"></p>
+            </div>
+        </div>
+
+        <!-- System natrętnych przypomnień -->
+        <div id="nag-banner" class="hidden bg-red-600 border-4 border-red-800 text-white p-6 rounded-2xl shadow-2xl text-center animate-pulse">
+            <i class="fa-solid fa-triangle-exclamation text-4xl mb-2"></i>
+            <h2 class="text-2xl font-black uppercase mb-2">Pobudka Eljon!</h2>
+            <p class="font-semibold text-lg">Minęły co najmniej 3 dni od Twojego ostatniego treningu. Nie poddajemy się! Wykonaj chociaż krótki rozruch, aby zaliczyć dzień.</p>
+            <button onclick="requestNotifications()" class="mt-4 bg-white text-red-700 px-6 py-2 rounded-full font-bold shadow hover:bg-gray-100">
+                Włącz powiadomienia o treningu
+            </button>
+        </div>
+
+        <header class="text-center mb-6 smart-text" id="main-header">
+            <img src="icon-512.png" alt="Trening Eljon Logo" class="w-32 h-32 mx-auto mb-4 drop-shadow-md rounded-2xl">
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 drop-shadow-md">Trening Eljon</h1>
+            <p class="text-lg opacity-90 font-medium" id="week-display">Ładowanie tygodnia...</p>
+            
+            <div class="mt-4 flex justify-center gap-2">
+                <button onclick="changeColors('#1e3a8a', '#059669')" class="w-6 h-6 rounded-full bg-gradient-to-r from-blue-800 to-emerald-600 border-2 border-white shadow"></button>
+                <button onclick="changeColors('#4c1d95', '#be185d')" class="w-6 h-6 rounded-full bg-gradient-to-r from-purple-800 to-pink-700 border-2 border-white shadow"></button>
+                <button onclick="changeColors('#1f2937', '#000000')" class="w-6 h-6 rounded-full bg-gradient-to-r from-gray-800 to-black border-2 border-white shadow"></button>
+            </div>
+        </header>
+
+        <!-- Moduł Kontroli Wagi -->
+        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 border border-white/20">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fa-solid fa-scale-balanced text-2xl text-blue-600"></i>
+                <h2 class="text-xl font-bold text-gray-800">Kontrola Wagi</h2>
+            </div>
+            
+            <div id="weight-input-section" class="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <p class="text-sm font-semibold text-blue-800 mb-3" id="weight-prompt-text">Czas na cotygodniowe ważenie!</p>
+                <div class="flex gap-2">
+                    <input type="number" id="weight-input" step="0.1" placeholder="np. 81.5" class="px-4 py-2 rounded-lg border-2 border-blue-200 focus:outline-none focus:border-blue-500 w-32 font-bold text-gray-700">
+                    <button onclick="saveWeight()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition">Zapisz</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b-2 border-gray-200 text-gray-600 text-sm">
+                            <th class="p-2">Data</th>
+                            <th class="p-2">Waga (kg)</th>
+                            <th class="p-2">Zmiana</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weight-history-body" class="text-sm font-medium">
+                        <!-- Generowane przez JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Kalendarz -->
+        <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 border border-white/20">
+            <div class="flex justify-between items-center mb-4">
+                <button onclick="changeMonth(-1)" class="p-2 hover:bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2 id="calendar-month-year" class="text-xl font-bold text-gray-800 capitalize"></h2>
+                <button onclick="changeMonth(1)" class="p-2 hover:bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center font-bold text-gray-700"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="grid grid-cols-7 gap-1 md:gap-2 text-center text-xs md:text-sm font-semibold text-gray-500 mb-2">
+                <div>Pn</div><div>Wt</div><div>Śr</div><div>Cz</div><div>Pt</div><div>Sb</div><div>Nd</div>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2 text-center"></div>
+        </div>
+
+        <!-- Kontener na plan treningowy -->
+        <div id="workout-container" class="space-y-6"></div>
+
+        <footer class="text-center smart-text pb-8" id="main-footer">
+            <button onclick="resetProgress()" class="px-4 py-2 bg-red-500/80 hover:bg-red-600 text-white rounded-lg text-sm font-semibold shadow transition-colors">
+                <i class="fa-solid fa-trash-can mr-2"></i>Zresetuj postęp wybranego dnia
+            </button>
+        </footer>
+    </div>
+
+    <script>
+        // --- TOASTY / POWIADOMIENIA (zamiast alert) ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bgClass = 'bg-green-600';
+            let iconClass = 'fa-circle-check';
+            if (type === 'error') {
+                bgClass = 'bg-red-600';
+                iconClass = 'fa-circle-exclamation';
+            } else if (type === 'info') {
+                bgClass = 'bg-blue-600';
+                iconClass = 'fa-circle-info';
+            }
+
+            toast.className = `${bgClass} text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 transform translate-y-10 opacity-0 transition-all duration-300 pointer-events-auto`;
+            toast.innerHTML = `<i class="fa-solid ${iconClass} text-xl"></i><span class="font-medium">${message}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Animacja wejścia
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+            
+            // Animacja wyjścia
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- OKNO POTWIERDZENIA (zamiast confirm) ---
+        function showConfirm(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            modal.classList.remove('hidden');
+
+            const btnCancel = document.getElementById('confirm-btn-cancel');
+            const btnOk = document.getElementById('confirm-btn-ok');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                btnCancel.removeEventListener('click', onCancel);
+                btnOk.removeEventListener('click', onOk);
+            };
+
+            const onCancel = () => cleanup();
+            const onOk = () => {
+                cleanup();
+                onConfirm();
+            };
+
+            btnCancel.addEventListener('click', onCancel);
+            btnOk.addEventListener('click', onOk);
+        }
+
+        // --- DANE I KONFIGURACJA ---
+        const dietTips = [
+            "Wypij szklankę wody zaraz po przebudzeniu, by pobudzić metabolizm.",
+            "Zastąp jedno jasne pieczywo w ciągu dnia pieczywem pełnoziarnistym.",
+            "Jedz powoli. Mózg potrzebuje około 20 minut, by zorientować się, że jesteś najedzony.",
+            "Dodaj garść warzyw (np. pomidor, ogórek) do każdego śniadania i kolacji.",
+            "Zamiast słodkiej przekąski, zjedz kilka orzechów włoskich lub migdałów.",
+            "Postaraj się nie jeść na 2-3 godziny przed snem.",
+            "Zamień napoje słodzone na wodę z cytryną lub miętą.",
+            "Wybieraj pieczenie lub gotowanie na parze zamiast głębokiego smażenia.",
+            "Zwróć uwagę na ilość białka w posiłkach - budują mięśnie.",
+            "Czytaj etykiety. Im krótszy skład, tym lepszy produkt."
+        ];
+
+        const motivationalQuotes = [
+            "Każdy wielki cel zaczyna się od małego kroku. Dzisiaj zrobiłeś ogromny krok naprzód!",
+            "Ból, który czujesz dzisiaj, będzie siłą, którą poczujesz jutro.",
+            "Nie musisz być wielki, aby zacząć, ale musisz zacząć, aby być wielkim.",
+            "Wymówki nie budują mięśni. Twoja dzisiejsza praca to inwestycja w lepsze jutro.",
+            "Najtrudniejszy jest pierwszy krok. Ty masz już cały dzisiejszy trening za sobą!",
+            "Sukces to suma niewielkich wysiłków powtarzanych dzień po dniu.",
+            "Jesteś o jeden trening bliżej swojej wymarzonej sylwetki. Świetna robota!",
+            "Nie ma drogi na skróty do miejsca, do którego warto dojść. Brawo za wytrwałość!",
+            "Twoje ciało potrafi znieść prawie wszystko. To twój umysł musisz przekonać. Dziś wygrałeś!",
+            "Motywacja pozwala zacząć, ale to nawyk pozwala wytrwać. Budujesz świetny nawyk!",
+            "Nigdy nie pożałujesz treningu, który właśnie wykonałeś.",
+            "Mistrzem nie stajesz się na ringu, tam tylko zostajesz rozpoznany. Mistrzem stajesz się dzisiaj, podczas treningu.",
+            "Zainwestuj w siebie. To jedyna inwestycja, która zawsze się zwraca.",
+            "Nie patrz w kalendarz. Rób to co on – idź naprzód!",
+            "Kropla drąży skałę nie siłą, lecz częstym spadaniem. Twoja konsekwencja buduje formę!",
+            "Duma z wykonanego zadania smakuje o wiele lepiej niż zjedzony z nudów batonik. Gratulacje!"
+        ];
+
+        const workoutPhases = {
+            1: {
+                push: { name: "Pompki przy ścianie (łagodne)", sets: "3 serie x 10-12 powt.", link: "https://www.youtube.com/watch?v=-YzGc4TLOOM" },
+                core: { name: "Deska (Plank) na kolanach", sets: "3 serie x 20 sek.", link: "https://www.youtube.com/watch?v=utaPMDo6H6o" },
+                legs: { name: "Przysiady wspomagane", sets: "3 serie x 10 powt.", link: "https://www.youtube.com/watch?v=ASHTsm9BY0g" },
+                pull: { name: "Ściąganie łopatek w staniu", sets: "3 serie x 15 powt.", link: "https://www.youtube.com/results?search_query=ściąganie+łopatek+stojąc" }
+            },
+            2: {
+                push: { name: "Pompki w oparciu o blat/stół", sets: "3 serie x 10 powt.", link: "https://www.youtube.com/watch?v=S5Jwx517XuY" },
+                core: { name: "Deska (Plank) na kolanach", sets: "3 serie x 35 sek.", link: "https://www.youtube.com/watch?v=utaPMDo6H6o" },
+                legs: { name: "Przysiady klasyczne", sets: "3 serie x 12 powt.", link: "https://www.youtube.com/watch?v=ASHTsm9BY0g" },
+                pull: { name: "Pływanie na sucho (leżąc)", sets: "3 serie x 30 sek.", link: "https://www.youtube.com/results?search_query=pływanie+na+sucho+ćwiczenie" }
+            },
+            3: {
+                push: { name: "Pompki na kolanach", sets: "3 serie x 8-10 powt.", link: "https://www.youtube.com/watch?v=hwmChWb7u40" },
+                core: { name: "Deska (Plank) klasyczna", sets: "3 serie x 20-30 sek.", link: "https://www.youtube.com/watch?v=FR8qYjA8pKQ" },
+                legs: { name: "Przysiady z pauzą (2 sek.)", sets: "3 serie x 10 powt.", link: "https://www.youtube.com/watch?v=ASHTsm9BY0g" },
+                pull: { name: "Podciąganie australijskie", sets: "3 serie x 6 powt.", link: "https://www.youtube.com/watch?v=bcfrD_HsKhc" }
+            },
+            4: {
+                push: { name: "Pompki klasyczne", sets: "3 serie x 5-8 powt.", link: "https://www.youtube.com/watch?v=baCcDGahK-g" },
+                core: { name: "Deska z dotykaniem barków", sets: "3 serie x 16 dotknięć", link: "https://www.youtube.com/results?search_query=plank+shoulder+taps" },
+                legs: { name: "Wykroki", sets: "3 serie x 8 powt. na nogę", link: "https://www.youtube.com/watch?v=_kE05bfLrUQ" },
+                pull: { name: "Podciąganie australijskie", sets: "3 serie x 10 powt.", link: "https://www.youtube.com/watch?v=bcfrD_HsKhc" }
+            }
+        };
+
+        function getPlanForPhase(phaseNum) {
+            const p = workoutPhases[phaseNum] || workoutPhases[4];
+            return {
+                1: { title: "Dzień 1 (Poniedziałek): Klatka i Ramiona", icon: "fa-hand-back-fist", exercises: [
+                        { id: "d1-1", name: "Krążenia ramion", sets: "2 min", video: "https://www.youtube.com/watch?v=21ab893d-f89b-47b0-89da-ae572d97e64f" },
+                        { id: "d1-2", name: p.push.name, sets: p.push.sets, video: p.push.link },
+                        { id: "d1-3", name: "Opuszczanie na krześle (Triceps)", sets: "3 serie x 8 powt.", video: "https://www.youtube.com/watch?v=3b7d4268-c72f-498c-8d77-1952943166bb" }
+                     ]},
+                2: { title: "Dzień 2 (Wtorek): Core i Brzuch", icon: "fa-shield-halved", exercises: [
+                        { id: "d2-1", name: "Koci Grzbiet", sets: "10 powt.", video: "https://www.youtube.com/watch?v=1eb9f3e7-5b56-40a1-b06c-813b983a1719" },
+                        { id: "d2-2", name: p.core.name, sets: p.core.sets, video: p.core.link },
+                        { id: "d2-3", name: "Ptak-Pies (Bird-Dog)", sets: "3 serie x 8 powt./stronę", video: "https://www.youtube.com/watch?v=1555a58c-2048-446b-84f2-6c3ae8f1f850" }
+                     ]},
+                3: { title: "Dzień 3 (Środa): Nogi", icon: "fa-person-walking", exercises: [
+                        { id: "d3-1", name: "Pajacyki lub marsz", sets: "2 min", video: "https://www.youtube.com/watch?v=b24e9cfb-25ed-4c78-9125-5b6af607fc7c" },
+                        { id: "d3-2", name: p.legs.name, sets: p.legs.sets, video: p.legs.link },
+                        { id: "d3-3", name: "Unoszenie bioder (Glute Bridge)", sets: "3 serie x 12 powt.", video: "https://www.youtube.com/watch?v=21b1b6ae-460a-4509-9eee-3db8a3e1cddc" }
+                     ]},
+                4: { title: "Dzień 4 (Czwartek): Regeneracja", icon: "fa-leaf", exercises: [
+                        { id: "d4-1", name: "Spokojny spacer", sets: "30-40 minut", video: "https://www.youtube.com/watch?v=723e64bd-b3b4-4278-bdd7-029f579eba50" },
+                        { id: "d4-2", name: "Delikatne rozciąganie", sets: "10 minut", video: "https://www.youtube.com/watch?v=485a35e0-08e6-4ef8-a582-e53063ea497c" }
+                     ]},
+                5: { title: "Dzień 5 (Piątek): Trening Obwodowy", icon: "fa-stopwatch", exercises: [
+                        { id: "d5-1", name: p.push.name, sets: "2 serie", video: p.push.link },
+                        { id: "d5-2", name: p.legs.name, sets: "2 serie", video: p.legs.link },
+                        { id: "d5-3", name: p.core.name, sets: "2 serie", video: p.core.link }
+                     ]},
+                6: { title: "Dzień 6 (Sobota): Plecy", icon: "fa-dumbbell", exercises: [
+                        { id: "d6-1", name: p.pull.name, sets: p.pull.sets, video: p.pull.link },
+                        { id: "d6-2", name: "Skręty tułowia w opadzie", sets: "2 serie x 12 powt.", video: "https://www.youtube.com/watch?v=57c851dd-f27e-4363-9cc4-1c1ecf8173f2" }
+                     ]},
+                0: { title: "Dzień 7 (Niedziela): Dzień Odpoczynku 🌿", icon: "fa-bed", exercises: [
+                        { id: "d7-1", name: "Pełna regeneracja.", sets: "Czas na relaks", video: "https://www.youtube.com/watch?v=deb2cf3f-f1d4-46a6-9eb3-28c55c1af3e8" }
+                     ]}
+            };
+        }
+
+        let currentDate = new Date();
+        let selectedDate = new Date();
+        let currentWeek = 1;
+        let currentPhase = 1;
+        
+        function initApp() {
+            const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+            document.getElementById('diet-tip-text').innerText = dietTips[dayOfYear % dietTips.length];
+
+            let startDate = localStorage.getItem('appStartDate');
+            if (!startDate) {
+                startDate = new Date().toISOString();
+                localStorage.setItem('appStartDate', startDate);
+            }
+            const diffDays = Math.ceil(Math.abs(new Date() - new Date(startDate)) / (1000 * 60 * 60 * 24));
+            currentWeek = Math.floor(diffDays / 7) + 1;
+            if(currentWeek > 8) currentWeek = 8;
+            currentPhase = Math.ceil(currentWeek / 2);
+            if(currentPhase > 4) currentPhase = 4;
+
+            document.getElementById('week-display').innerHTML = `Twój aktualny tydzień: <strong class="text-xl">${currentWeek} z 8</strong> (Faza ${currentPhase})`;
+
+            checkActivityAndNag();
+            renderWeightModule();
+            applySmartContrast();
+            renderCalendar();
+            renderWorkoutForDate(selectedDate);
+        }
+
+        function checkActivityAndNag() {
+            let lastActive = parseInt(localStorage.getItem('lastActivityTimestamp')) || 0;
+            const daysInactive = (Date.now() - lastActive) / (1000 * 60 * 60 * 24);
+            if (lastActive > 0 && daysInactive >= 3) {
+                document.getElementById('nag-banner').classList.remove('hidden');
+            } else {
+                document.getElementById('nag-banner').classList.add('hidden');
+            }
+        }
+
+        function updateActivity() {
+            localStorage.setItem('lastActivityTimestamp', Date.now());
+            document.getElementById('nag-banner').classList.add('hidden');
+        }
+
+        function requestNotifications() {
+            if (!("Notification" in window)) {
+                showToast("Twoja przeglądarka nie obsługuje powiadomień.", "error");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        showToast("Powiadomienia włączone!", "success");
+                    }
+                });
+            }
+        }
+
+        function loadWeightData() {
+            return JSON.parse(localStorage.getItem('weightHistory')) || [];
+        }
+
+        function renderWeightModule() {
+            const history = loadWeightData();
+            const tbody = document.getElementById('weight-history-body');
+            const inputSection = document.getElementById('weight-input-section');
+            const promptText = document.getElementById('weight-prompt-text');
+            
+            tbody.innerHTML = '';
+            let showInput = true;
+            
+            if (history.length > 0) {
+                const diffDays = (new Date() - new Date(history[history.length - 1].date)) / (1000 * 60 * 60 * 24);
+                if (diffDays < 6.5) showInput = false;
+                else promptText.innerText = "Minął tydzień! Wprowadź dzisiejszą wagę:";
+
+                const reversed = [...history].reverse();
+                reversed.forEach((entry, index) => {
+                    let diffHtml = '<span class="text-gray-500">-</span>';
+                    if (index < reversed.length - 1) {
+                        const diff = (entry.weight - reversed[index + 1].weight).toFixed(1);
+                        if (diff > 0) diffHtml = `<span class="text-red-500 font-bold"><i class="fa-solid fa-arrow-trend-up"></i> +${diff} kg</span>`;
+                        else if (diff < 0) diffHtml = `<span class="text-green-600 font-bold"><i class="fa-solid fa-arrow-trend-down"></i> ${diff} kg</span>`;
+                        else diffHtml = `<span class="text-gray-500">Bez zmian</span>`;
+                    }
+                    tbody.innerHTML += `<tr class="border-b border-gray-100 hover:bg-gray-50"><td class="p-2">${new Date(entry.date).toLocaleDateString('pl-PL')}</td><td class="p-2 font-bold">${entry.weight} kg</td><td class="p-2">${diffHtml}</td></tr>`;
+                });
+            } else {
+                promptText.innerText = "Wprowadź swoją wagę startową (np. 82.0):";
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Brak historii ważeń.</td></tr>`;
+            }
+            inputSection.style.display = showInput ? 'block' : 'none';
+        }
+
+        window.saveWeight = function() {
+            const input = document.getElementById('weight-input');
+            const weight = parseFloat(input.value);
+            if (isNaN(weight) || weight < 40 || weight > 200) {
+                showToast("Wprowadź poprawną wagę.", "error");
+                return;
+            }
+            const history = loadWeightData();
+            history.push({ date: new Date().toISOString(), weight: weight });
+            localStorage.setItem('weightHistory', JSON.stringify(history));
+            input.value = '';
+            renderWeightModule();
+            showToast("Waga została zapisana!", "success");
+        }
+
+        function applySmartContrast() {
+            const rgb1 = hexToRgb(getComputedStyle(document.documentElement).getPropertyValue('--bg-color-1').trim());
+            const rgb2 = hexToRgb(getComputedStyle(document.documentElement).getPropertyValue('--bg-color-2').trim());
+            const avg = (getLuminance(...rgb1) + getLuminance(...rgb2)) / 2;
+            document.querySelectorAll('.smart-text').forEach(el => {
+                if (avg > 0.5) el.classList.replace('text-white', 'text-gray-900') || el.classList.add('text-gray-900');
+                else el.classList.replace('text-gray-900', 'text-white') || el.classList.add('text-white');
+            });
+        }
+
+        function hexToRgb(h) {
+            let c = h.substring(1).split('');
+            if(c.length === 3) c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            c = '0x' + c.join('');
+            return [(c>>16)&255, (c>>8)&255, c&255];
+        }
+        
+        function getLuminance(r, g, b) {
+            let a = [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+            return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+        }
+
+        window.changeColors = function(c1, c2) {
+            document.documentElement.style.setProperty('--bg-color-1', c1);
+            document.documentElement.style.setProperty('--bg-color-2', c2);
+            applySmartContrast();
+        }
+
+        const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
+        const getFormatDateStr = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+        window.changeMonth = function(offset) {
+            currentDate.setMonth(currentDate.getMonth() + offset);
+            renderCalendar();
+        }
+
+        window.selectDate = function(y, m, d) {
+            selectedDate = new Date(y, m, d);
+            renderCalendar();
+            renderWorkoutForDate(selectedDate);
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('calendar-month-year').textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            let startDayOffset = firstDay === 0 ? 6 : firstDay - 1;
+            
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            for(let i = 0; i < startDayOffset; i++) grid.innerHTML += `<div></div>`;
+            
+            const todayStr = getFormatDateStr(new Date());
+            const selectedStr = getFormatDateStr(selectedDate);
+
+            for(let d = 1; d <= daysInMonth; d++) {
+                const dateObj = new Date(year, month, d);
+                const dateStr = getFormatDateStr(dateObj);
+                const dayOfWeek = dateObj.getDay();
+                
+                let style = dayOfWeek === 0 ? "bg-green-100 text-green-800 hover:bg-green-200 border border-green-200" : "bg-gray-50 text-gray-700 hover:bg-gray-200";
+                
+                if (dateStr === selectedStr) style = dayOfWeek === 0 ? "bg-green-600 text-white shadow-md" : "bg-blue-600 text-white shadow-md";
+                else if (dateStr === todayStr) style = dayOfWeek === 0 ? "bg-green-100 text-green-900 border-2 border-green-500" : "bg-blue-100 text-blue-800 border-2 border-blue-400";
+                
+                let dotClass = dayOfWeek !== 0 ? 'bg-green-500' : 'bg-gray-300';
+                if(dateStr === selectedStr) dotClass = 'bg-white';
+
+                grid.innerHTML += `
+                    <button onclick="selectDate(${year}, ${month}, ${d})" class="p-2 rounded-lg cursor-pointer transition-all flex flex-col items-center ${style}">
+                        <span>${d}</span><div class="w-1.5 h-1.5 rounded-full mx-auto mt-1 ${dotClass}"></div>
+                    </button>`;
+            }
+        }
+
+        function renderWorkoutForDate(date) {
+            const container = document.getElementById('workout-container');
+            const dayOfWeek = date.getDay();
+            const currentPlan = getPlanForPhase(currentPhase)[dayOfWeek];
+            const dateStr = getFormatDateStr(date);
+            const isFuture = date > new Date(new Date().setHours(23,59,59,999));
+
+            let exercisesHTML = '';
+            currentPlan.exercises.forEach(ex => {
+                const storageKey = `${dateStr}_${ex.id}`;
+                const isChecked = localStorage.getItem(storageKey) === 'true' ? 'checked' : '';
+                const disabled = isFuture ? 'disabled' : '';
+                const opClass = isFuture ? 'opacity-60 grayscale' : 'hover:border-blue-300 shadow-sm hover:shadow-md cursor-pointer';
+                
+                const ytLink = ex.video ? `
+                    <a href="${ex.video}" target="_blank" onclick="event.stopPropagation()" class="mt-2 sm:mt-0 sm:ml-auto flex-shrink-0 inline-flex items-center gap-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg shadow-md transition z-10 relative">
+                        🎥 Zobacz jak ćwiczyć
+                    </a>` : '';
+
+                exercisesHTML += `
+                    <label class="relative flex items-center mb-3 group ${isFuture?'':'cursor-pointer'}">
+                        <!-- Ukryty checkbox (obsługuje kliknięcia) -->
+                        <input type="checkbox" class="sr-only card-checkbox" id="${storageKey}" ${isChecked} ${disabled} onchange="toggleExercise('${storageKey}')">
+                        <!-- Fiszka -->
+                        <div class="w-full flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border-2 border-gray-100 rounded-xl transition-all duration-200 ${opClass}">
+                            <div class="flex items-center gap-4">
+                                <div class="check-circle w-7 h-7 flex-shrink-0 bg-white border-2 border-gray-300 rounded-md flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-check text-white opacity-0 transition-opacity"></i>
+                                </div>
+                                <div>
+                                    <h3 class="ex-title text-gray-800 font-bold text-base sm:text-lg transition-colors">${ex.name}</h3>
+                                    <p class="text-gray-500 text-sm font-medium"><i class="fa-solid fa-bullseye mr-1"></i> ${ex.sets}</p>
+                                </div>
+                            </div>
+                            ${ytLink}
+                        </div>
+                    </label>`;
+            });
+
+            container.innerHTML = `
+                <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6 border border-white/20">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-gray-200 pb-3 mb-5 gap-2">
+                        <h2 class="text-xl md:text-2xl font-black text-gray-800 flex items-center gap-3">
+                            <i class="fa-solid ${currentPlan.icon} text-blue-600"></i> ${currentPlan.title}
+                        </h2>
+                        <span class="text-sm font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap">
+                            <i class="fa-regular fa-calendar mr-1"></i> ${date.toLocaleDateString('pl-PL')}
+                        </span>
+                    </div>
+                    ${isFuture ? '<p class="text-orange-600 text-sm font-bold mb-4 bg-orange-50 p-2 rounded"><i class="fa-solid fa-clock mr-1"></i> Zablokowane - to dzień w przyszłości.</p>' : ''}
+                    <div class="flex flex-col">${exercisesHTML}</div>
+                </div>
+            `;
+        }
+
+        window.toggleExercise = function(storageKey) {
+            const isChecked = document.getElementById(storageKey).checked;
+            localStorage.setItem(storageKey, isChecked);
+            
+            if(isChecked) {
+                updateActivity();
+                checkAllCompletedForToday();
+            }
+        }
+
+        function checkAllCompletedForToday() {
+            const todayStr = getFormatDateStr(new Date());
+            if (todayStr !== getFormatDateStr(selectedDate)) return;
+
+            const currentPlan = getPlanForPhase(currentPhase)[selectedDate.getDay()];
+            if (!currentPlan.exercises || currentPlan.exercises.length === 0 || selectedDate.getDay() === 0) return;
+
+            let allDone = true;
+            currentPlan.exercises.forEach(ex => {
+                if (localStorage.getItem(`${todayStr}_${ex.id}`) !== 'true') allDone = false;
+            });
+
+            if (allDone) showMotivationModal();
+        }
+
+        function showMotivationModal() {
+            const dayIndex = Math.floor(Date.now() / 86400000);
+            document.getElementById('motivational-quote-text').innerText = motivationalQuotes[dayIndex % motivationalQuotes.length];
+            
+            const modal = document.getElementById('motivation-modal');
+            const content = document.getElementById('motivation-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => { content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
+        }
+
+        window.closeModal = function() {
+            const modal = document.getElementById('motivation-modal');
+            const content = document.getElementById('motivation-modal-content');
+            content.classList.remove('scale-100'); content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        window.resetProgress = function() {
+            showConfirm("Resetowanie dnia", "Czy na pewno chcesz odznaczyć wszystkie ćwiczenia na wybrany dzień? Tej operacji nie można cofnąć.", () => {
+                const dateStr = getFormatDateStr(selectedDate);
+                const plan = getPlanForPhase(currentPhase)[selectedDate.getDay()];
+                plan.exercises.forEach(ex => localStorage.removeItem(`${dateStr}_${ex.id}`));
+                renderWorkoutForDate(selectedDate);
+                showToast("Postęp dla tego dnia został zresetowany.", "info");
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
